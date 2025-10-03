@@ -1,0 +1,274 @@
+openapi: 3.0.3
+info:
+  title: Credit Service API
+  version: 1.0.0
+  description: >
+    REST API for managing bank credits (personal and business).
+    Simplified for exam presentation: only essential endpoints.
+
+servers:
+  - url: http://localhost:8082/api/v1
+    description: Local development
+
+tags:
+  - name: Credits
+    description: Credit management endpoints
+  - name: Payments
+    description: Credit payment endpoints
+
+paths:
+  /credits:
+    post:
+      tags: [Credits]
+      summary: Create a new credit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditRequestDTO'
+      responses:
+        '201':
+          description: Credit created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditDTO'
+              example:
+                id: "crd-001"
+                creditType: PERSONAL
+                customerId: "cst-123"
+                principal: 5000.00
+                outstandingBalance: 5000.00
+                status: ACTIVE
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseDTO'
+        '409':
+          description: Business rule violation (e.g., personal customer already has a credit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseDTO'
+
+    get:
+      tags: [Credits]
+      summary: List all credits
+      parameters:
+        - in: query
+          name: customerId
+          schema: { type: string }
+        - in: query
+          name: creditType
+          schema:
+            type: string
+            enum: [PERSONAL, BUSINESS]
+      responses:
+        '200':
+          description: List of credits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CreditDTO'
+              example:
+                - id: "crd-001"
+                  creditType: PERSONAL
+                  customerId: "cst-123"
+                  principal: 5000.00
+                  outstandingBalance: 4800.00
+                  status: ACTIVE
+                - id: "crd-002"
+                  creditType: BUSINESS
+                  customerId: "cst-124"
+                  principal: 20000.00
+                  outstandingBalance: 15000.00
+                  status: ACTIVE
+
+  /credits/{creditId}:
+    get:
+      tags: [Credits]
+      summary: Get credit by ID
+      parameters:
+        - name: creditId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Credit details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditDTO'
+              example:
+                id: "crd-001"
+                creditType: PERSONAL
+                customerId: "cst-123"
+                principal: 5000.00
+                outstandingBalance: 4800.00
+                status: ACTIVE
+        '404':
+          description: Credit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseDTO'
+
+    delete:
+      tags: [Credits]
+      summary: Cancel a credit (only if not disbursed)
+      parameters:
+        - name: creditId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Credit cancelled
+        '404':
+          description: Credit not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseDTO'
+
+  /credits/{creditId}/balance:
+    get:
+      tags: [Credits]
+      summary: Get outstanding balance of a credit
+      parameters:
+        - name: creditId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Outstanding balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  creditId: { type: string }
+                  outstandingBalance: { type: number, format: double }
+              example:
+                creditId: "crd-001"
+                outstandingBalance: 4800.00
+
+  /credits/{creditId}/payments:
+    post:
+      tags: [Payments]
+      summary: Register a credit payment
+      parameters:
+        - name: creditId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequestDTO'
+      responses:
+        '201':
+          description: Payment registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentDTO'
+              example:
+                id: "pay-001"
+                creditId: "crd-001"
+                amount: 200.00
+                paymentDate: "2025-09-29T12:00:00Z"
+                balanceAfter: 4600.00
+        '400':
+          description: Invalid payment request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseDTO'
+
+    get:
+      tags: [Payments]
+      summary: List payments of a credit
+      parameters:
+        - name: creditId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Payment history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentDTO'
+              example:
+                - id: "pay-001"
+                  creditId: "crd-001"
+                  amount: 200.00
+                  paymentDate: "2025-09-29T12:00:00Z"
+                  balanceAfter: 4800.00
+                - id: "pay-002"
+                  creditId: "crd-001"
+                  amount: 200.00
+                  paymentDate: "2025-10-29T12:00:00Z"
+                  balanceAfter: 4600.00
+
+components:
+  schemas:
+    CreditRequestDTO:
+      type: object
+      properties:
+        creditType:
+          type: string
+          enum: [PERSONAL, BUSINESS]
+        customerId: { type: string }
+        principal: { type: number, format: double }
+        termMonths: { type: integer }
+        interestRate: { type: number, format: double }
+      required: [creditType, customerId, principal]
+
+    CreditDTO:
+      type: object
+      properties:
+        id: { type: string }
+        creditType: { type: string }
+        customerId: { type: string }
+        principal: { type: number, format: double }
+        outstandingBalance: { type: number, format: double }
+        status:
+          type: string
+          enum: [ACTIVE, CLOSED, CANCELLED]
+
+    PaymentRequestDTO:
+      type: object
+      properties:
+        amount: { type: number, format: double }
+        paymentDate: { type: string, format: date-time }
+      required: [amount]
+
+    PaymentDTO:
+      type: object
+      properties:
+        id: { type: string }
+        creditId: { type: string }
+        amount: { type: number, format: double }
+        paymentDate: { type: string, format: date-time }
+        balanceAfter: { type: number, format: double }
+
+    ErrorResponseDTO:
+      type: object
+      properties:
+        errorCode: { type: string }
+        message: { type: string }
+      required: [message]
