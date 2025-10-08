@@ -248,7 +248,7 @@ components:
         outstandingBalance: { type: number, format: double }
         status:
           type: string
-          enum: [ACTIVE, CLOSED, CANCELLED]
+          enum: [ACTIVE, CLOSED, CANCELLED, DEFEATED]
 
     PaymentRequestDTO:
       type: object
